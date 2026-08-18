@@ -11,7 +11,7 @@ from importlib.resources import files
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from .assistant import LocalAssistant
+from .assistant import AssistantBackend, AssistantUnavailable, assistant_from_environment
 from .model import InvalidTransition, OrbRegistry, OrbState
 
 
@@ -22,9 +22,14 @@ DEVICE_ROUTE = re.compile(r"^/api/v1/devices/([A-Za-z0-9_-]{1,64})/(state|events
 class OrbGatewayServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address: tuple[str, int], registry: OrbRegistry | None = None):
+    def __init__(
+        self,
+        address: tuple[str, int],
+        registry: OrbRegistry | None = None,
+        assistant: AssistantBackend | None = None,
+    ):
         self.registry = registry or OrbRegistry()
-        self.assistant = LocalAssistant(self.registry.count)
+        self.assistant = assistant or assistant_from_environment(self.registry.count)
         super().__init__(address, OrbRequestHandler)
 
 
@@ -80,6 +85,9 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
         except InvalidTransition as exc:
             self._error(HTTPStatus.CONFLICT, str(exc))
             return
+        except AssistantUnavailable as exc:
+            self._error(HTTPStatus.BAD_GATEWAY, str(exc))
+            return
         except (ValueError, json.JSONDecodeError) as exc:
             self._error(HTTPStatus.BAD_REQUEST, str(exc))
             return
@@ -98,7 +106,11 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
                 device.apply("wake")
             device.apply("speech_end")
 
-        response = self.server.assistant.respond(text, device_id)
+        try:
+            response = self.server.assistant.respond(text, device_id)
+        except (AssistantUnavailable, ValueError) as exc:
+            device.apply("fail", {"message": str(exc)})
+            raise
         snapshot = device.apply(
             "answer",
             {"title": response.title, "message": response.message},

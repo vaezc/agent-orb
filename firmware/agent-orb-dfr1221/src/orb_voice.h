@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include <ESP_I2S.h>
+#include <driver/i2s.h>
 
 // DFR1221 板载 PDM 麦克风（DFRobot 官方示例引脚）。
 constexpr gpio_num_t kMicClockPin = GPIO_NUM_45;
@@ -14,9 +14,8 @@ constexpr uint32_t kVoiceSampleRate = 16000;
 class OrbVoice {
  public:
   bool Begin();
-  bool Ready() const { return ready_; }
+ bool Ready() const { return ready_; }
 
  private:
-  I2SClass microphone_;
   bool ready_ = false;
 };

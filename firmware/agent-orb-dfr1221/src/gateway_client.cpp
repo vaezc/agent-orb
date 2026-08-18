@@ -56,7 +56,8 @@ bool GatewayClient::ParseResponse(HTTPClient& http, int status,
     return false;
   }
   if (status < 200 || status >= 300) {
-    *error = json["message"] | String("HTTP ") + status;
+    const char* detail = json["message"];
+    *error = detail ? String(detail) : String("HTTP ") + status;
     return false;
   }
 

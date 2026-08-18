@@ -1,10 +1,12 @@
 import json
 import threading
 import unittest
+from unittest.mock import Mock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from orb_gateway.app import OrbGatewayServer
+from orb_gateway.assistant import AssistantUnavailable
 
 
 class GatewayHttpTests(unittest.TestCase):
@@ -77,6 +79,30 @@ class GatewayHttpTests(unittest.TestCase):
                 error.close()
         else:
             self.fail("expected HTTP 409")
+
+    def test_assistant_failure_moves_device_to_error(self):
+        assistant = Mock()
+        assistant.respond.side_effect = AssistantUnavailable("offline")
+        assistant.list_tools.return_value = []
+        server = OrbGatewayServer(("127.0.0.1", 0), assistant=assistant)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            request = Request(
+                f"http://127.0.0.1:{server.server_port}/api/v1/devices/failure/query",
+                data=json.dumps({"text": "hello"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(HTTPError) as raised:
+                urlopen(request, timeout=2)
+            self.assertEqual(raised.exception.code, 502)
+            raised.exception.close()
+            self.assertEqual(server.registry.get("failure").snapshot().state.value, "error")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
 
 if __name__ == "__main__":

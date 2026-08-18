@@ -78,6 +78,9 @@ void setup() {
   delay(500);
   Serial.println("\nAgent Orb DFR1221 v0.1");
   Serial.println("serial controls: w=wake e=speech_end a=approve r=reject d=dismiss x=reset");
+  Serial.printf("[memory] PSRAM %s, %u bytes\n",
+                psramFound() ? "ready" : "unavailable",
+                static_cast<unsigned>(ESP.getPsramSize()));
   display.Begin();
   voice.Begin();
   ConnectWifi();

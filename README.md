@@ -45,6 +45,18 @@ PYTHONPATH=src python3 -m orb_gateway --host 0.0.0.0 --port 8787
 
 可以直接输入“现在几点”“系统状态”或“你会做什么”。Chrome/Edge 在 localhost 下还可以点击麦克风按钮，使用浏览器原生语音识别跑通 `Listening → Thinking → Answer`。当前不会把未知问题伪装成 AI 回答，而会明确提示真实 LLM 尚未接入。
 
+### 接入 Snoopy Agent
+
+如果同一台电脑上已经运行 Snoopy Server，可以让 Gateway 把查询交给真实 Agent：
+
+```bash
+export SNOOPY_SERVER_URL="http://127.0.0.1:4317"
+export SNOOPY_SERVER_TOKEN="<Snoopy Server Token>"
+PYTHONPATH=src python3 -m orb_gateway --host 0.0.0.0 --port 8787
+```
+
+两个变量都未设置时仍使用内置演示助手；只设置其中一个时 Gateway 会拒绝启动，避免悄悄回退到演示回答。Snoopy 不可用时 Orb 会进入 `error`，而不是一直停在 `thinking`。
+
 ## 试一下完整链路
 
 在另一个终端发送主动提醒：
@@ -149,4 +161,5 @@ src/orb_gateway/static/         浏览器 Orb 模拟器
 firmware/agent-orb-dfr1221/     ESP32-S3 固件骨架
 tests/                          状态机和 HTTP 测试
 docs/protocol.md                设备协议
+docs/HANDOFF.md                 真机验证与后续 AI 交接
 ```
