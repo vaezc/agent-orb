@@ -1,0 +1,133 @@
+# Agent Orb
+
+Agent Orb 是为 DFRobot DFR1221（ESP32-S3、360×360 圆屏）设计的桌面 AI 实体入口。
+
+当前版本先跑通最重要的闭环：
+
+```text
+电脑 / Agent 发起事件
+        ↓
+Local Gateway（本项目）
+        ↓ Wi-Fi
+DFR1221 / 浏览器模拟器
+        ↓
+用户确认、取消或语音唤醒
+        ↓
+结果返回电脑 / Agent
+```
+
+## 已完成
+
+- 明确的 Orb 状态机：`Idle → Listening → Thinking → Answer`
+- 主动提醒与人工授权：`Attention → Approval → Answer`
+- 零第三方依赖的本地 HTTP Gateway
+- 360×360 圆屏风格浏览器模拟器
+- DFR1221 固件骨架与设备协议客户端
+- 自动测试
+
+## 立即运行
+
+只需要 Python 3.10+：
+
+```bash
+python3 -m orb_gateway --host 0.0.0.0 --port 8787
+```
+
+如果还没有安装本项目，直接在仓库根目录运行：
+
+```bash
+PYTHONPATH=src python3 -m orb_gateway --host 0.0.0.0 --port 8787
+```
+
+然后打开 <http://localhost:8787>。页面本身就是一个可交互的 Orb 模拟器。
+
+## 试一下完整链路
+
+在另一个终端发送主动提醒：
+
+```bash
+curl -X POST http://localhost:8787/api/v1/devices/demo/actions \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"attention","title":"需要关注","message":"15 分钟后有项目会议"}'
+```
+
+发送授权请求：
+
+```bash
+curl -X POST http://localhost:8787/api/v1/devices/demo/actions \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"request_approval","title":"部署生产环境？","message":"commit a82f31"}'
+```
+
+查询设备状态：
+
+```bash
+curl http://localhost:8787/api/v1/devices/demo/state
+```
+
+## API
+
+### `GET /api/v1/devices/{device_id}/state`
+
+返回当前状态、展示内容和递增版本号。
+
+### `POST /api/v1/devices/{device_id}/actions`
+
+请求体：
+
+```json
+{
+  "action": "attention",
+  "title": "需要关注",
+  "message": "15 分钟后有会议",
+  "request_id": "optional-correlation-id"
+}
+```
+
+支持的动作：
+
+- `wake`
+- `speech_end`
+- `answer`
+- `attention`
+- `request_approval`
+- `approve`
+- `reject`
+- `dismiss`
+- `cancel`
+- `fail`
+- `reset`
+
+非法的状态跳转会返回 HTTP 409，而不会悄悄破坏设备状态。
+
+### `GET /api/v1/devices/{device_id}/events?after={revision}&timeout=20`
+
+长轮询接口。状态版本大于 `after` 时立即返回，否则等待，最长 25 秒。ESP32 可以用它减少空轮询。
+
+## 固件
+
+固件骨架位于 [`firmware/agent-orb-dfr1221`](firmware/agent-orb-dfr1221)。它已包含：
+
+- DFR1221 的 ESP32-S3/16MB Flash/8MB PSRAM 构建设置
+- Wi-Fi 和 Gateway 通信
+- 与电脑端一致的状态模型
+- GPIO45/46 PDM 麦克风引脚定义
+- WakeNet/音频采集的独立适配边界
+
+目前浏览器模拟器可以完成全部产品交互验证。真实屏幕驱动需要把 DFRobot 官方提供的 `ESP32_Display_Panel`、`ESP32_IO_Expander` 与 LVGL 8.4 库接入 `OrbDisplay`；本目录没有伪造未经实机验证的 ST77916 初始化参数。
+
+## 测试
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -v
+```
+
+## 项目结构
+
+```text
+src/orb_gateway/                Local Gateway
+src/orb_gateway/static/         浏览器 Orb 模拟器
+firmware/agent-orb-dfr1221/     ESP32-S3 固件骨架
+tests/                          状态机和 HTTP 测试
+docs/protocol.md                设备协议
+```

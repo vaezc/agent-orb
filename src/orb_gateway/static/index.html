@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Orb</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="hero">
+        <div class="eyebrow"><span id="connectionDot"></span> LOCAL GATEWAY</div>
+        <h1>Agent Orb</h1>
+        <p>桌面 AI 的实体状态与授权终端</p>
+      </section>
+
+      <section class="device-stage" aria-label="Orb simulator">
+        <div class="device-shell">
+          <div class="display" id="display" data-state="idle">
+            <div class="glow"></div>
+            <div class="orb" aria-hidden="true">
+              <span class="orb-core"></span>
+              <span class="orbit orbit-one"></span>
+              <span class="orbit orbit-two"></span>
+            </div>
+            <div class="copy">
+              <strong id="title">Agent Orb</strong>
+              <span id="message">随时可以叫我</span>
+            </div>
+            <div class="approval" id="approvalControls">
+              <button class="round reject" data-action="reject" aria-label="取消">×</button>
+              <button class="round approve" data-action="approve" aria-label="确认">✓</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="status-row">
+          <div>
+            <span class="label">设备</span>
+            <code>demo</code>
+          </div>
+          <div>
+            <span class="label">状态</span>
+            <strong id="stateName">IDLE</strong>
+          </div>
+          <div>
+            <span class="label">版本</span>
+            <strong id="revision">0</strong>
+          </div>
+        </div>
+        <div class="controls">
+          <button data-action="wake">唤醒</button>
+          <button data-action="speech_end">说完了</button>
+          <button data-action="answer" data-title="今日安排" data-message="15:00 项目会议 · 17:30 健身">返回答案</button>
+          <button data-action="attention" data-title="需要关注" data-message="15 分钟后有项目会议">主动提醒</button>
+          <button data-action="request_approval" data-title="部署生产环境？" data-message="commit a82f31">请求确认</button>
+          <button data-action="dismiss">回到待机</button>
+          <button data-action="reset">重置</button>
+        </div>
+        <p id="feedback" role="status">选择一个动作，观察状态机变化。</p>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
