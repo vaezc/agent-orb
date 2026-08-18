@@ -11,19 +11,21 @@ from importlib.resources import files
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from .model import InvalidTransition, OrbRegistry
+from .assistant import LocalAssistant
+from .model import InvalidTransition, OrbRegistry, OrbState
 
 
 LOGGER = logging.getLogger("agent-orb")
-DEVICE_ROUTE = re.compile(r"^/api/v1/devices/([A-Za-z0-9_-]{1,64})/(state|events|actions)$")
+DEVICE_ROUTE = re.compile(r"^/api/v1/devices/([A-Za-z0-9_-]{1,64})/(state|events|actions|query)$")
 
 
 class OrbGatewayServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, address: tuple[str, int], registry: OrbRegistry | None = None):
-        super().__init__(address, OrbRequestHandler)
         self.registry = registry or OrbRegistry()
+        self.assistant = LocalAssistant(self.registry.count)
+        super().__init__(address, OrbRequestHandler)
 
 
 class OrbRequestHandler(BaseHTTPRequestHandler):
@@ -32,7 +34,10 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         if parsed.path == "/api/v1/health":
-            self._json(HTTPStatus.OK, {"ok": True, "service": "agent-orb", "version": "0.1.0"})
+            self._json(HTTPStatus.OK, {"ok": True, "service": "agent-orb", "version": "0.2.0"})
+            return
+        if parsed.path == "/api/v1/tools":
+            self._json(HTTPStatus.OK, {"tools": self.server.assistant.list_tools()})
             return
         if parsed.path == "/api/v1/devices":
             self._json(HTTPStatus.OK, {"devices": self.server.registry.list_snapshots()})
@@ -59,12 +64,15 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         match = DEVICE_ROUTE.match(parsed.path)
-        if not match or match.group(2) != "actions":
+        if not match or match.group(2) not in {"actions", "query"}:
             self._error(HTTPStatus.NOT_FOUND, "endpoint not found")
             return
 
         try:
             payload = self._read_json()
+            if match.group(2) == "query":
+                self._handle_query(match.group(1), payload)
+                return
             action = payload.get("action")
             if not isinstance(action, str) or not action:
                 raise ValueError("action is required and must be a string")
@@ -76,6 +84,29 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.BAD_REQUEST, str(exc))
             return
         self._json(HTTPStatus.OK, snapshot.to_dict())
+
+    def _handle_query(self, device_id: str, payload: dict) -> None:
+        text = payload.get("text")
+        if not isinstance(text, str):
+            raise ValueError("text is required and must be a string")
+
+        device = self.server.registry.get(device_id)
+        current = device.snapshot().state
+        if current is not OrbState.THINKING:
+            if current is not OrbState.LISTENING:
+                device.apply("reset")
+                device.apply("wake")
+            device.apply("speech_end")
+
+        response = self.server.assistant.respond(text, device_id)
+        snapshot = device.apply(
+            "answer",
+            {"title": response.title, "message": response.message},
+        )
+        body = snapshot.to_dict()
+        body["input"] = text
+        body["tool"] = response.tool
+        self._json(HTTPStatus.OK, body)
 
     def do_OPTIONS(self) -> None:  # noqa: N802
         self.send_response(HTTPStatus.NO_CONTENT)

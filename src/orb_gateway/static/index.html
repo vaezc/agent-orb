@@ -50,6 +50,19 @@
             <strong id="revision">0</strong>
           </div>
         </div>
+        <form class="ask" id="askForm">
+          <label for="queryInput">对 Orb 说</label>
+          <div class="ask-row">
+            <input id="queryInput" name="query" maxlength="500" autocomplete="off" placeholder="例如：现在几点？" />
+            <button type="button" class="mic" id="micButton" aria-label="开始语音输入">●</button>
+            <button type="submit" class="send">发送</button>
+          </div>
+          <div class="suggestions">
+            <button type="button" data-query="现在几点？">现在几点</button>
+            <button type="button" data-query="系统状态">系统状态</button>
+            <button type="button" data-query="你会做什么？">当前能力</button>
+          </div>
+        </form>
         <div class="controls">
           <button data-action="wake">唤醒</button>
           <button data-action="speech_end">说完了</button>

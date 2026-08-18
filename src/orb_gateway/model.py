@@ -157,3 +157,7 @@ class OrbRegistry:
     def list_snapshots(self) -> list[dict[str, Any]]:
         with self._lock:
             return [device.snapshot().to_dict() for device in self._devices.values()]
+
+    def count(self) -> int:
+        with self._lock:
+            return len(self._devices)

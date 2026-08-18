@@ -22,6 +22,8 @@ DFR1221 / 浏览器模拟器
 - 主动提醒与人工授权：`Attention → Approval → Answer`
 - 零第三方依赖的本地 HTTP Gateway
 - 360×360 圆屏风格浏览器模拟器
+- Web 文字输入与浏览器原生中文语音识别
+- 可替换的本地助手引擎和 4 个演示工具
 - DFR1221 固件骨架与设备协议客户端
 - 自动测试
 
@@ -40,6 +42,8 @@ PYTHONPATH=src python3 -m orb_gateway --host 0.0.0.0 --port 8787
 ```
 
 然后打开 <http://localhost:8787>。页面本身就是一个可交互的 Orb 模拟器。
+
+可以直接输入“现在几点”“系统状态”或“你会做什么”。Chrome/Edge 在 localhost 下还可以点击麦克风按钮，使用浏览器原生语音识别跑通 `Listening → Thinking → Answer`。当前不会把未知问题伪装成 AI 回答，而会明确提示真实 LLM 尚未接入。
 
 ## 试一下完整链路
 
@@ -99,6 +103,21 @@ curl http://localhost:8787/api/v1/devices/demo/state
 - `reset`
 
 非法的状态跳转会返回 HTTP 409，而不会悄悄破坏设备状态。
+
+
+### `POST /api/v1/devices/{device_id}/query`
+
+提交 Web 文字或浏览器语音识别结果：
+
+```json
+{"text":"现在几点？","source":"web"}
+```
+
+Gateway 自动完成状态流转，并返回最终快照以及实际调用的本地工具名。
+
+### `GET /api/v1/tools`
+
+列出当前助手引擎真正实现的工具。现阶段包括时间日期、Gateway 状态、能力说明和安全回显。
 
 ### `GET /api/v1/devices/{device_id}/events?after={revision}&timeout=20`
 
