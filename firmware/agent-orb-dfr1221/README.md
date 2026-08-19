@@ -1,14 +1,15 @@
 # DFR1221 firmware
 
-这是 Agent Orb 的 DFRobot DFR1221 固件骨架。
+这是 Agent Orb 的 DFRobot DFR1221 真机固件。
 
 ## 当前可验证的能力
 
 - ESP32-S3 连接 Wi-Fi
 - 从 Local Gateway 拉取 Orb 状态
 - 将确认、拒绝、唤醒等操作发回 Gateway
+- 驱动 360×360 ST77916 圆屏，展示 Orb 状态、标题和中英文消息
 - 初始化 GPIO45/46 的 16kHz 单声道 PDM 麦克风
-- 通过串口呈现状态，验证真实板卡与 Gateway 的完整通信
+- 通过串口镜像状态和启动诊断
 
 ## 配置
 
@@ -20,7 +21,7 @@ cp include/secrets.example.h include/secrets.h
 
 ## 构建与烧录
 
-安装 PlatformIO 后：
+仓库已锁定 Arduino-ESP32 3.0.7、ESP32_Display_Panel 0.1.4 和 LVGL 8.4.0。安装 PlatformIO 后：
 
 ```bash
 pio run
@@ -39,9 +40,9 @@ pio device monitor
 | `d` | 关闭消息 |
 | `x` | 重置到待机 |
 
-## 为什么屏幕暂时是串口实现
+## 屏幕实现
 
-DFRobot 为这块板提供的是配套 `ESP32_Display_Panel`、`ESP32_IO_Expander`、LVGL 8.4 和特定 ST77916 示例包。屏幕时序和 IO 扩展配置必须以官方示例为准。当前代码把显示实现封装在 `OrbDisplay` 中，拿到并验证官方库后只替换这个类。
+`OrbDisplay` 使用 DFRobot 官方引脚与 Espressif `ESP32_Display_Panel` 驱动 ST77916 QSPI 屏，并通过 LVGL 8.4 刷新 UI。背光为 GPIO15，复位为 GPIO47，QSPI 为 GPIO9–14 和 GPIO10 片选。字体启用 LVGL 自带常用中文字库。触摸 CST816S 尚未接入交互。
 
 ## WakeNet 接入点
 

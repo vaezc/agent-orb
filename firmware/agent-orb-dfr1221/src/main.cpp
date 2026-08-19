@@ -34,6 +34,7 @@ void ConnectWifi() {
   Serial.printf("[wifi] connecting to %s", ORB_WIFI_SSID);
   const uint32_t deadline = millis() + 20000;
   while (WiFi.status() != WL_CONNECTED && millis() < deadline) {
+    display.Loop();
     delay(300);
     Serial.print('.');
   }
@@ -87,6 +88,7 @@ void setup() {
 }
 
 void loop() {
+  display.Loop();
   HandleSerialControl();
 
   if (WiFi.status() != WL_CONNECTED) {
@@ -96,6 +98,7 @@ void loop() {
       WiFi.disconnect();
       WiFi.begin(ORB_WIFI_SSID, ORB_WIFI_PASSWORD);
     }
+    display.Loop();
     delay(10);
     return;
   }

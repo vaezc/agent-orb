@@ -20,7 +20,7 @@ DFRobot DFR1221（ESP32-S3）
 
 同时验证了反向授权动作：Gateway 发出带 `request_id` 的授权请求，设备收到 `APPROVAL`，设备通过串口发送 `approve` 后，Gateway 进入 `ANSWER` 并保留关联 ID。
 
-必须准确理解当前完成度：DFR1221 的网络、状态协议、PSRAM 和麦克风初始化已在真机验证；设备上的 `OrbDisplay` 仍是串口回退实现，360×360 实体圆屏还没有点亮。麦克风也只完成了 PDM 初始化，尚无 WakeNet、录音、VAD、音频上传或 STT。
+必须准确理解当前完成度：DFR1221 的 ST77916 实体圆屏、网络、状态协议、PSRAM 和麦克风初始化已在真机验证。屏幕可显示状态、标题、中英文消息和授权提示；串口仍保留为诊断镜像。麦克风只完成了 PDM 初始化，尚无 WakeNet、录音、VAD、音频上传或 STT；CST816S 触摸也尚未接入交互。
 
 ## 相关项目
 
@@ -51,8 +51,13 @@ DFRobot DFR1221（ESP32-S3）
 
 ### DFR1221 固件
 
-- 修复 Arduino-ESP32 2.0.17 与原代码使用的 3.x `ESP_I2S.h` API 不兼容问题。
+- 将构建环境锁定到 pioarduino / Arduino-ESP32 3.0.7，满足 DFRobot 官方屏幕示例的 3.0.1+ 要求。
+- 锁定 `ESP32_Display_Panel` 0.1.4、`ESP32_IO_Expander` 0.0.2 和 LVGL 8.4.0。
+- 根据官方 DFR1221 引脚实现 360×360 ST77916 QSPI 屏、GPIO15 背光和 GPIO47 复位。
+- 新增圆屏 Orb UI，状态使用独立颜色，并启用 LVGL 常用中文字库。
+- 显存刷新采用 DMA 完成后同步通知 LVGL，避免首帧阻塞。
 - 使用 ESP-IDF legacy I2S 驱动初始化 GPIO45/46 PDM 麦克风。
+- 适配 Arduino-ESP32 3.x 的 I2S MCLK 和采样位数枚举。
 - 修复 ArduinoJson 7 与 `StringSumHelper` 默认值表达式的编译错误。
 - 增加 `qio_opi` 内存模式，使板载 8MB OPI PSRAM 正确工作。
 - 启动日志会明确打印 PSRAM 可用状态和容量。
@@ -65,6 +70,8 @@ DFRobot DFR1221（ESP32-S3）
 - PSRAM：8MB OPI，启动实测 `8386295 bytes` 可用。
 - 麦克风：PDM，CLK=GPIO45、DATA=GPIO46，16kHz mono；初始化成功。
 - 音频电源：GPIO48。
+- 屏幕：ST77916，360×360，50MHz QSPI；SCK=9、CS=10、D0–D3=11–14、背光=15、复位=47。
+- 图形：LVGL 8.4，48 行内部 RAM 绘制缓冲，常用中文字体已启用。
 - Wi-Fi：同名双频网络可用，ESP32-S3 会连接 2.4GHz。
 - Gateway 地址保存在本机 `include/secrets.h`；该文件被 Git 忽略。
 - USB 串口编号会在重新插拔后变化，例如 `usbmodem21101`、`usbmodem21201`，烧录前必须重新发现，不能硬编码旧端口。
@@ -72,6 +79,10 @@ DFRobot DFR1221（ESP32-S3）
 最终真机测试观察到：
 
 ```text
+[display] ST77916 + LVGL ready
+[voice] PDM microphone ready (CLK=45 DATA=46, 16 kHz mono)
+[wifi] connected, IP=192.168.1.18
+
 THINKING
 正在思考
 
@@ -122,8 +133,8 @@ PYTHONPATH=src python3 -m orb_gateway --host 0.0.0.0 --port 8787 --verbose
 
 ## 已知缺口与建议顺序
 
-1. **点亮真实圆屏**：接入 DFRobot 官方 `ESP32_Display_Panel`、`ESP32_IO_Expander`、LVGL 8.4 和官方 DFR1221/ST77916 初始化配置，只替换 `OrbDisplay` 边界。不要猜屏幕时序或 IO 扩展器配置。
-2. **建立真实语音输入**：读取已经初始化的 PDM PCM，接 WakeNet/VAD，再把录音上传电脑端进行 STT。语义理解继续留在 Snoopy/Gateway，不放到 ESP32。
+1. **建立真实语音输入**：读取已经初始化的 PDM PCM，接 WakeNet/VAD，再把录音上传电脑端进行 STT。语义理解继续留在 Snoopy/Gateway，不放到 ESP32。
+2. **接入触摸交互**：使用官方 CST816S 引脚（SCL=8、SDA=7、INT=41、RST=40），把屏幕确认/拒绝动作接到 `GatewayClient`。
 3. **对接 Snoopy 记忆例外审核**：当前 `SnoopyAssistant` 只在标题提示待审核候选数量，Orb 的确认动作还没有调用 Snoopy candidate accept/reject API。
 4. **使用长轮询**：固件目前每 800ms 请求 `/state`；Gateway 已有 `/events?after=N&timeout=20`。
 5. **持久运行 Gateway**：当前由终端手动启动，后续可增加独立 LaunchAgent，并继续从 Keychain 注入 Token。
@@ -135,4 +146,4 @@ PYTHONPATH=src python3 -m orb_gateway --host 0.0.0.0 --port 8787 --verbose
 2. 执行 `git status`，保留用户新增改动。
 3. 确认 `secrets.h` 存在但被 Git 忽略，不要读取或输出其值。
 4. 运行 Python 测试和固件构建。
-5. 若继续屏幕工作，必须先获得并核对 DFRobot 官方 DFR1221 示例包，再修改 `OrbDisplay`。
+5. 屏幕已按 DFRobot 官方 DFR1221 示例实现并烧录验证。如要升级核心或屏幕库，先验证 ST77916、PDM 麦克风和 Wi-Fi 三者兼容性。

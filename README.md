@@ -24,7 +24,7 @@ DFR1221 / 浏览器模拟器
 - 360×360 圆屏风格浏览器模拟器
 - Web 文字输入与浏览器原生中文语音识别
 - 可替换的本地助手引擎和 4 个演示工具
-- DFR1221 固件骨架与设备协议客户端
+- DFR1221 真机固件、ST77916 圆屏 UI 与设备协议客户端
 - 自动测试
 
 ## 立即运行
@@ -137,15 +137,17 @@ Gateway 自动完成状态流转，并返回最终快照以及实际调用的本
 
 ## 固件
 
-固件骨架位于 [`firmware/agent-orb-dfr1221`](firmware/agent-orb-dfr1221)。它已包含：
+固件位于 [`firmware/agent-orb-dfr1221`](firmware/agent-orb-dfr1221)。它已包含：
 
 - DFR1221 的 ESP32-S3/16MB Flash/8MB PSRAM 构建设置
 - Wi-Fi 和 Gateway 通信
 - 与电脑端一致的状态模型
+- DFRobot 官方引脚的 ST77916 QSPI 圆屏驱动和 LVGL 8.4 UI
+- 常用中文字体与状态颜色反馈
 - GPIO45/46 PDM 麦克风引脚定义
 - WakeNet/音频采集的独立适配边界
 
-目前浏览器模拟器可以完成全部产品交互验证。真实屏幕驱动需要把 DFRobot 官方提供的 `ESP32_Display_Panel`、`ESP32_IO_Expander` 与 LVGL 8.4 库接入 `OrbDisplay`；本目录没有伪造未经实机验证的 ST77916 初始化参数。
+屏幕、PSRAM、PDM 麦克风初始化、Wi-Fi 和 Snoopy Gateway 状态拉取已在实际 DFR1221 上联调通过。触摸、WakeNet、VAD、录音上传与 STT 仍是后续工作。
 
 ## 测试
 
