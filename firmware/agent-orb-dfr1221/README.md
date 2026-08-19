@@ -7,7 +7,7 @@
 - ESP32-S3 连接 Wi-Fi
 - 从 Local Gateway 拉取 Orb 状态
 - 将确认、拒绝、唤醒等操作发回 Gateway
-- 驱动 360×360 ST77916 圆屏，展示 Orb 状态、标题和中英文消息
+- 驱动 360×360 ST77916 圆屏，展示 Orb 状态、标题和英文消息
 - 初始化 GPIO45/46 的 16kHz 单声道 PDM 麦克风
 - 通过串口镜像状态和启动诊断
 
@@ -21,7 +21,7 @@ cp include/secrets.example.h include/secrets.h
 
 ## 构建与烧录
 
-仓库已锁定 Arduino-ESP32 3.0.7、ESP32_Display_Panel 0.1.4 和 LVGL 8.4.0。安装 PlatformIO 后：
+仓库已锁定 Arduino-ESP32 3.3.11、ESP32_Display_Panel 0.1.4 和 LVGL 8.3.11。安装 PlatformIO 后：
 
 ```bash
 pio run
@@ -42,7 +42,7 @@ pio device monitor
 
 ## 屏幕实现
 
-`OrbDisplay` 使用 DFRobot 官方引脚与 Espressif `ESP32_Display_Panel` 驱动 ST77916 QSPI 屏，并通过 LVGL 8.4 刷新 UI。背光为 GPIO15，复位为 GPIO47，QSPI 为 GPIO9–14 和 GPIO10 片选。字体启用 LVGL 自带常用中文字库。触摸 CST816S 尚未接入交互。
+`OrbDisplay` 使用从同级 `code_cost` 项目验证过的引脚、ST77916 厂商初始化表和异步 DMA 刷新回调，通过 LVGL 8.3.11 刷新 UI。背光为 GPIO15，复位为 GPIO47，QSPI 为 GPIO9–14 和 GPIO10 片选。当前只启用 Montserrat 英文字体；动态中文回答需要后续补充中文字库。CST816S 已初始化，但尚未接入 Orb 业务交互。
 
 ## WakeNet 接入点
 

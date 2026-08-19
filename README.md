@@ -142,8 +142,8 @@ Gateway 自动完成状态流转，并返回最终快照以及实际调用的本
 - DFR1221 的 ESP32-S3/16MB Flash/8MB PSRAM 构建设置
 - Wi-Fi 和 Gateway 通信
 - 与电脑端一致的状态模型
-- DFRobot 官方引脚的 ST77916 QSPI 圆屏驱动和 LVGL 8.4 UI
-- 常用中文字体与状态颜色反馈
+- 经 `code_cost` 真机验证的 ST77916 QSPI 圆屏驱动和 LVGL 8.3.11 UI
+- 英文状态文字与状态颜色反馈（动态中文字库待补）
 - GPIO45/46 PDM 麦克风引脚定义
 - WakeNet/音频采集的独立适配边界
 

@@ -13,5 +13,4 @@ class OrbDisplay {
 
  private:
   uint32_t last_revision_ = UINT32_MAX;
-  uint32_t last_tick_ms_ = 0;
 };
