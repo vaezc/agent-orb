@@ -127,9 +127,11 @@ bool OrbVoice::StopRecording() {
     return false;
   }
   WriteWavHeader(wav_buffer_, pcm_size_);
-  Serial.printf("[voice] recording ready: %u ms, %u bytes WAV, peak mean %.0f\n",
+  Serial.printf("[voice] recording ready: %u ms, %u bytes WAV, peak mean %.0f, "
+                "noise floor %.0f\n",
                 static_cast<unsigned>(millis() - recording_started_at_),
-                static_cast<unsigned>(WavSize()), peak_mean_amplitude_);
+                static_cast<unsigned>(WavSize()), peak_mean_amplitude_,
+                noise_floor_);
   return true;
 }
 
@@ -149,10 +151,20 @@ void OrbVoice::UpdateVoiceActivity(const int16_t* samples, size_t count) {
   const uint32_t now = millis();
   const float amplitude = MeanAbsoluteAmplitude(samples, count);
   peak_mean_amplitude_ = max(peak_mean_amplitude_, amplitude);
-  const float speech_threshold = max(350.0f, noise_floor_ * 2.5f);
+
+  // Ignore the tail of "Hi ESP" so the wake phrase itself does not count as
+  // the user's query. The DC-corrected quiet-room amplitude is about 26 on the
+  // test device, while normal nearby speech is about 216.
+  if (now - recording_started_at_ < 400) return;
+
+  const float speech_threshold = max(80.0f, noise_floor_ * 3.0f);
   if (amplitude >= speech_threshold) {
     speech_started_ = true;
     last_speech_at_ = now;
+  } else if (!speech_started_) {
+    // Follow slowly changing fan/room noise without letting speech raise the
+    // baseline that is used to detect itself.
+    noise_floor_ = noise_floor_ * 0.95f + amplitude * 0.05f;
   }
   if (speech_started_ && now - last_speech_at_ >= 900) {
     speech_finished_ = true;

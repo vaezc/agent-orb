@@ -28,6 +28,16 @@ class LocalAssistantTests(unittest.TestCase):
 
 
 class SnoopyAssistantTests(unittest.TestCase):
+    def test_clock_is_answered_locally_without_calling_upstream(self):
+        with patch("orb_gateway.assistant.urlopen") as mocked:
+            result = SnoopyAssistant("http://127.0.0.1:4317", "secret").respond(
+                "现在几点", "demo"
+            )
+
+        self.assertEqual(result.tool, "clock")
+        self.assertRegex(result.message, r"^\d{2}:\d{2}$")
+        mocked.assert_not_called()
+
     def test_response_is_mapped_to_orb_answer(self):
         upstream = MagicMock()
         upstream.__enter__.return_value = upstream

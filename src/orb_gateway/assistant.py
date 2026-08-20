@@ -39,6 +39,17 @@ class AssistantUnavailable(RuntimeError):
     pass
 
 
+def _clock_response(text: str) -> AssistantResponse | None:
+    now = datetime.now().astimezone()
+    if any(word in text for word in ("几点", "时间")):
+        return AssistantResponse("当前时间", now.strftime("%H:%M"), "clock")
+    if any(word in text for word in ("几号", "日期", "星期")):
+        weekdays = "一二三四五六日"
+        message = f"{now:%Y年%m月%d日}，星期{weekdays[now.weekday()]}"
+        return AssistantResponse("今天", message, "clock")
+    return None
+
+
 class LocalAssistant:
     """Small deterministic assistant used to validate the complete Web flow.
 
@@ -67,14 +78,9 @@ class LocalAssistant:
             raise ValueError("text must contain at most 500 characters")
 
         lowered = cleaned.casefold()
-        now = datetime.now().astimezone()
-
-        if any(word in cleaned for word in ("几点", "时间")):
-            return AssistantResponse("当前时间", now.strftime("%H:%M"), "clock")
-        if any(word in cleaned for word in ("几号", "日期", "星期")):
-            weekdays = "一二三四五六日"
-            message = f"{now:%Y年%m月%d日}，星期{weekdays[now.weekday()]}"
-            return AssistantResponse("今天", message, "clock")
+        clock_response = _clock_response(cleaned)
+        if clock_response is not None:
+            return clock_response
         if "状态" in cleaned or "health" in lowered:
             count = self._device_count()
             return AssistantResponse(
@@ -114,6 +120,11 @@ class SnoopyAssistant:
     def list_tools(self) -> list[dict]:
         return [
             ToolDefinition(
+                "clock",
+                "读取 Gateway 所在电脑的本地日期和时间",
+                ("现在几点", "今天几号"),
+            ).to_dict(),
+            ToolDefinition(
                 "snoopy_chat",
                 "调用 Snoopy Agent 的模型、长期记忆和只读搜索能力",
                 ("帮我总结今天的重点", "你还记得什么"),
@@ -126,6 +137,10 @@ class SnoopyAssistant:
             raise ValueError("text must not be empty")
         if len(cleaned) > 500:
             raise ValueError("text must contain at most 500 characters")
+
+        clock_response = _clock_response(cleaned)
+        if clock_response is not None:
+            return clock_response
 
         request = Request(
             f"{self._base_url}/v1/chat",

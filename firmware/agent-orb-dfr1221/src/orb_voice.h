@@ -41,7 +41,7 @@ class OrbVoice {
   size_t pcm_size_ = 0;
   uint32_t recording_started_at_ = 0;
   uint32_t last_speech_at_ = 0;
-  float noise_floor_ = 200.0f;
+  float noise_floor_ = 30.0f;
   float peak_mean_amplitude_ = 0.0f;
 
   I2SClass i2s_;
