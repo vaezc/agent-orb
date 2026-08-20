@@ -30,7 +30,9 @@ uint32_t next_poll_at = 0;
 uint32_t next_startup_report_at = 0;
 bool startup_report_pending = true;
 bool auto_stop_recording = false;
+uint32_t answer_dismiss_at = 0;
 constexpr uint32_t kPollIntervalMs = 800;
+constexpr uint32_t kAnswerDisplayMs = 12000;
 constexpr uint8_t kVoiceButtonPin = 0;
 
 void ConnectWifi() {
@@ -56,14 +58,26 @@ void ConnectWifi() {
   }
 }
 
+void ApplySnapshot(const OrbSnapshot& next) {
+  const bool is_new_answer = next.state == OrbState::kAnswer &&
+                             (snapshot.state != OrbState::kAnswer ||
+                              next.revision != snapshot.revision);
+  snapshot = next;
+  display.Show(snapshot);
+  if (is_new_answer) {
+    answer_dismiss_at = millis() + kAnswerDisplayMs;
+  } else if (snapshot.state != OrbState::kAnswer) {
+    answer_dismiss_at = 0;
+  }
+}
+
 bool SendAction(const char* action, const char* title = nullptr,
                 const char* message = nullptr) {
   if (WiFi.status() != WL_CONNECTED) return false;
   OrbSnapshot next;
   String error;
   if (gateway.SendAction(action, snapshot, &next, &error, title, message)) {
-    snapshot = next;
-    display.Show(snapshot);
+    ApplySnapshot(next);
     return true;
   } else {
     display.ShowNetworkError(error);
@@ -81,11 +95,20 @@ void UploadRecording() {
   Serial.printf("[voice] uploading %u bytes\n",
                 static_cast<unsigned>(voice.WavSize()));
   if (gateway.SendAudio(voice.WavData(), voice.WavSize(), &next, &error)) {
-    snapshot = next;
-    display.Show(snapshot);
+    ApplySnapshot(next);
     Serial.println("[voice] transcription and query complete");
   } else {
     display.ShowNetworkError(error);
+  }
+}
+
+void HandleAnswerTimeout() {
+  if (snapshot.state != OrbState::kAnswer || answer_dismiss_at == 0) return;
+  if (static_cast<int32_t>(millis() - answer_dismiss_at) < 0) return;
+  answer_dismiss_at = 0;
+  Serial.println("[ui] answer display timeout; returning to idle");
+  if (!SendAction("dismiss", "Agent Orb", "Say Hi ESP")) {
+    answer_dismiss_at = millis() + 2000;
   }
 }
 
@@ -168,8 +191,7 @@ void ReportStartupStatus() {
   const char* action = wake_ready ? "reset" : "fail";
   const char* message = wake_ready ? "Say Hi ESP" : "Wake word unavailable";
   if (gateway.SendAction(action, snapshot, &next, &error, "Agent Orb", message)) {
-    snapshot = next;
-    display.Show(snapshot);
+    ApplySnapshot(next);
     startup_report_pending = false;
     Serial.printf("[startup] gateway reported: %s\n", message);
   }
@@ -196,6 +218,7 @@ void loop() {
   display.Loop();
   HandleSerialControl();
   HandleVoiceButton();
+  HandleAnswerTimeout();
 
   if (WiFi.status() != WL_CONNECTED) {
     static uint32_t next_reconnect_at = 0;
@@ -216,8 +239,7 @@ void loop() {
     OrbSnapshot next;
     String error;
     if (gateway.FetchState(&next, &error)) {
-      snapshot = next;
-      display.Show(snapshot);
+      ApplySnapshot(next);
     } else {
       display.ShowNetworkError(error);
     }

@@ -59,6 +59,7 @@ Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验�
 - 新增圆屏 Orb UI，状态使用独立颜色；当前使用 Montserrat 14/16 英文字体。
 - 显存刷新采用异步 QSPI 传输，并在 DMA 完成回调中通知 LVGL。
 - 网络错误会使下一次成功状态强制重绘；即使 Gateway 状态 revision 未变化，连接恢复后屏幕也不会继续停在 `NETWORK ERROR`。
+- 新的 `ANSWER` 状态会启动 12 秒显示计时；到时设备发送 `dismiss` 并回到 `IDLE / Say Hi ESP`。2026-08-20 真机测试中 dismiss 请求耗时 49ms，解决答案界面永久停留的问题。
 - 使用 Arduino `ESP_I2S` 官方 PDM RX 接口初始化 GPIO45/46 麦克风。
 - 修复 ArduinoJson 7 与 `StringSumHelper` 默认值表达式的编译错误。
 - 增加 `qio_opi` 内存模式，使板载 8MB OPI PSRAM 正确工作。
@@ -82,6 +83,7 @@ Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验�
 - PSRAM：8MB OPI，启动实测 `8386295 bytes` 可用。
 - 麦克风：PDM，CLK=GPIO45、DATA=GPIO46，16kHz mono；初始化成功。
 - 音频电源：GPIO48。
+- 音频输出接口：I²S BCLK=GPIO18、WS=GPIO16、DIN=GPIO17。DFR1221 没有可直接听到声音的板载发声单元，官方播放示例要求在音频接口连接外置扬声器、耳机或其他设备；当前仓库也尚未实现 TTS 下载与 I²S 播放。
 - 屏幕：ST77916，360×360，50MHz QSPI；SCK=9、CS=10、D0–D3=11–14、背光=15、复位=47。
 - 图形：LVGL 8.3.11，72 行内部 RAM 绘制缓冲，`LV_COLOR_16_SWAP=1`。
 - 刷新：Arduino-ESP32 3.3.11 + ST77916 自定义初始化表 + DMA 完成回调；实机已确认蓝底文字稳定且无彩条。
