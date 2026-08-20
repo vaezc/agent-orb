@@ -8,8 +8,9 @@
 
 class GatewayClient {
  public:
-  GatewayClient(const String& base_url, const String& device_id)
-      : base_url_(base_url), device_id_(device_id) {}
+  GatewayClient(const String& base_url, const String& device_id,
+                const String& gateway_token)
+      : base_url_(base_url), device_id_(device_id), gateway_token_(gateway_token) {}
 
   bool FetchState(OrbSnapshot* snapshot, String* error);
   bool SendAction(const String& action, const OrbSnapshot& current,
@@ -21,8 +22,10 @@ class GatewayClient {
  private:
   bool ParseResponse(HTTPClient& http, int status, OrbSnapshot* snapshot,
                      String* error);
+  void AddAuthorization(HTTPClient& http) const;
   String Endpoint(const char* resource) const;
 
   String base_url_;
   String device_id_;
+  String gateway_token_;
 };

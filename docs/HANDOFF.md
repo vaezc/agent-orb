@@ -22,6 +22,8 @@ DFRobot DFR1221（ESP32-S3）
 
 必须准确理解当前完成度：DFR1221 的 ST77916 实体圆屏、网络、状态协议、PSRAM、PDM 麦克风和 ESP-SR WakeNet9 模型加载已在真机验证。最新固件启动后主动上报 `idle / Agent Orb / Say Hi ESP`，证明麦克风和唤醒引擎创建成功；设备同时持续拉取 Gateway 状态。已实现最长 8 秒 WAV 录音、轻量 VAD、音频上传和电脑端 whisper.cpp STT。因操作者不在设备旁，这一版还没有真实喊 `Hi ESP` 或录一句中文的端到端声学验证，不要宣称这部分已完成。屏幕上一版已稳定显示蓝底、状态圆环和英文文字；最新固件的最终外观也需回到设备旁确认。当前固件没有覆盖任意中文的字库，中文消息会缺字；CST816S 已初始化，但尚未接入 Orb 确认/拒绝业务交互。
 
+Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验证：公开健康接口返回 200，未带 Token 的设备 API 返回 401，实体设备 `192.168.1.18` 带 Token 持续获得 200。通过常驻 Gateway 提交“系统状态”实测返回 `tool=snoopy_chat`，证明 `Gateway → Snoopy Agent` 生产链路可用；验证后设备已恢复 `idle / Say Hi ESP / revision 5`。
+
 ## 相关项目
 
 本仓库的真实 Agent 是同级目录中的 `../snoopy_agent`。Snoopy 生产服务由 macOS LaunchAgent `com.snoopy.agent` 运行，对外提供受 Bearer Token 保护的 `/v1/chat`。
@@ -135,6 +137,7 @@ PYTHONPATH=src python3 -m orb_gateway --host <本机 Wi-Fi IP> --port 8787 --ver
 
 - `firmware/agent-orb-dfr1221/include/secrets.h` 包含 Wi-Fi 凭据，只能留在本机；`.gitignore` 已覆盖它。
 - Snoopy Token 保存在 macOS Keychain，不得写进代码、文档、日志或 Git。
+- Gateway 设备 Token 保存在 Keychain 的 `agent-orb-gateway-token`，并由配置脚本同步到已忽略的 `gateway_token.h`。生产 API 要求 Bearer Token，plist 中没有密钥。
 - Gateway 目前没有自身认证且 CORS 为 `*`。只监听需要的本机 Wi-Fi IP，不要监听 `0.0.0.0` 或暴露到公网。
 - whisper.cpp 模型不提交 Git。本机已安装 `/opt/homebrew/bin/whisper-cli`，模型在 `/Users/vae/Library/Caches/agent-orb/ggml-base.bin`。
 - 本地 `.venv/`、PlatformIO `.pio/` 和固件 secrets 都不能提交。
@@ -148,7 +151,7 @@ PYTHONPATH=src python3 -m orb_gateway --host <本机 Wi-Fi IP> --port 8787 --ver
 4. **补齐中文字库**：根据实际 UI 文案生成 LVGL 字体子集，或引入可覆盖动态回答的中文字库；注意内部 RAM 和 Flash 占用。当前不要宣称任意中文已可显示。
 5. **对接 Snoopy 记忆例外审核**：当前 `SnoopyAssistant` 只在标题提示待审核候选数量，Orb 的确认动作还没有调用 Snoopy candidate accept/reject API。
 6. **使用长轮询**：固件目前每 800ms 请求 `/state`；Gateway 已有 `/events?after=N&timeout=20`。
-7. **持久运行 Gateway**：当前由终端手动启动，后续可增加独立 LaunchAgent，并继续从 Keychain 注入 Token。
+7. **维护 Gateway LaunchAgent**：`com.agent-orb.gateway` 作为用户级常驻服务，从 Keychain 注入 Snoopy 和设备两个独立 Token，只监听 plist 中 `ORB_GATEWAY_HOST=192.168.1.13` 指定的 Wi-Fi 地址。运行副本在 `~/.agent-orb/`，日志在 `~/Library/Logs/AgentOrb/`。更新代码后需重新同步运行副本并重启服务；Wi-Fi IP 改变时需同时更新 plist 和固件 Gateway URL。
 8. **加强 Gateway 安全**：如果跨可信单机/局域网使用，增加认证、来源限制和更窄的 CORS。
 
 ## 下一位 AI 的开始方式

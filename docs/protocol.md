@@ -2,6 +2,11 @@
 
 协议刻意保持简单：UTF-8 JSON over HTTP。ESP32 和浏览器模拟器使用同一组接口。
 
+生产 Gateway 设置 `ORB_GATEWAY_TOKEN` 后，除 `/api/v1/health` 外的 API
+都需要 `Authorization: Bearer <token>`。设备 Token 由
+`scripts/provision_gateway_token.py` 同步到 macOS Keychain 和本地固件头文件，
+不得提交 Git 或写入 plist。
+
 ## 状态
 
 | 状态 | 含义 | 常见下一步 |

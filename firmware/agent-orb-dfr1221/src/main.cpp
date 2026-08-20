@@ -14,9 +14,15 @@
 #define ORB_DEVICE_ID "desk-orb"
 #endif
 
+#if __has_include("gateway_token.h")
+#include "gateway_token.h"
+#else
+#define ORB_GATEWAY_TOKEN ""
+#endif
+
 namespace {
 
-GatewayClient gateway(ORB_GATEWAY_URL, ORB_DEVICE_ID);
+GatewayClient gateway(ORB_GATEWAY_URL, ORB_DEVICE_ID, ORB_GATEWAY_TOKEN);
 OrbDisplay display;
 OrbVoice voice;
 OrbSnapshot snapshot;

@@ -47,6 +47,24 @@ PYTHONPATH=src python3 -m orb_gateway --host 0.0.0.0 --port 8787
 
 可以直接输入“现在几点”“系统状态”或“你会做什么”。Chrome/Edge 在 localhost 下还可以点击麦克风按钮，使用浏览器原生语音识别跑通 `Listening → Thinking → Answer`。当前不会把未知问题伪装成 AI 回答，而会明确提示真实 LLM 尚未接入。
 
+### macOS 常驻运行
+
+真机使用时可安装 `deploy/macos/com.agent-orb.gateway.plist` 为用户级
+LaunchAgent。它会在登录后启动、异常退出后重启，并且：
+
+- 从 macOS Keychain 的 `snoopy-server-token` 读取 Token；
+- 从独立的 `agent-orb-gateway-token` 读取设备认证 Token；
+- 从 Snoopy 生产配置读取 Agent 地址；
+- 仅在 plist 配置的 Wi-Fi IP 上监听 8787，不暴露到其他网络接口；
+- 使用 `$HOME/Library/Caches/agent-orb/ggml-base.bin` 做本地 STT。
+
+服务运行副本位于 `$HOME/.agent-orb/`，避免 macOS 对后台进程访问
+`Documents` 的权限限制；日志位于 `$HOME/Library/Logs/AgentOrb/`。
+DHCP 导致本机 Wi-Fi IP 改变时，需同步更新 plist 的 `ORB_GATEWAY_HOST`
+和固件 `ORB_GATEWAY_URL`。
+首次安装前运行 `python3 scripts/provision_gateway_token.py`，它会将同一个
+随机 Token 安全写入 Keychain 和被 Git 忽略的固件头文件。
+
 ### 接入 Snoopy Agent
 
 如果同一台电脑上已经运行 Snoopy Server，可以让 Gateway 把查询交给真实 Agent：

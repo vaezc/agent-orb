@@ -56,6 +56,28 @@ class GatewayHttpTests(unittest.TestCase):
         with urlopen(self.base + "/", timeout=2) as response:
             self.assertIn(b"Agent Orb", response.read())
 
+    def test_gateway_token_protects_device_api(self):
+        server = OrbGatewayServer(("127.0.0.1", 0), gateway_token="secret")
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        try:
+            with self.assertRaises(HTTPError) as raised:
+                urlopen(base + "/api/v1/devices/secure/state", timeout=2)
+            self.assertEqual(raised.exception.code, 401)
+            raised.exception.close()
+
+            request = Request(
+                base + "/api/v1/devices/secure/state",
+                headers={"Authorization": "Bearer secret"},
+            )
+            with urlopen(request, timeout=2) as response:
+                self.assertEqual(json.load(response)["state"], "idle")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
     def test_action_updates_state(self):
         status, body = self.post_json(
             "/api/v1/devices/http-test/actions",

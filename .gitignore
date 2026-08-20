@@ -6,3 +6,4 @@ venv/
 .env
 firmware/**/.pio/
 firmware/**/include/secrets.h
+firmware/**/include/gateway_token.h

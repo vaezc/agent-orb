@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.agent-orb.gateway</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/vae/.agent-orb/bin/gateway-service-runner.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/vae</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>ORB_GATEWAY_HOST</key>
+    <string>192.168.1.13</string>
+  </dict>
+  <key>WorkingDirectory</key>
+  <string>/Users/vae/.agent-orb</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/Users/vae/Library/Logs/AgentOrb/gateway.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/vae/Library/Logs/AgentOrb/gateway.error.log</string>
+</dict>
+</plist>

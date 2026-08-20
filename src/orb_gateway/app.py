@@ -4,7 +4,9 @@ import argparse
 import json
 import logging
 import mimetypes
+import os
 import re
+import secrets
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
@@ -36,10 +38,13 @@ class OrbGatewayServer(ThreadingHTTPServer):
         registry: OrbRegistry | None = None,
         assistant: AssistantBackend | None = None,
         transcriber: SpeechTranscriber | None = None,
+        gateway_token: str | None = None,
     ):
         self.registry = registry or OrbRegistry()
         self.assistant = assistant or assistant_from_environment(self.registry.count)
         self.transcriber = transcriber or speech_from_environment()
+        configured_token = gateway_token if gateway_token is not None else os.environ.get("ORB_GATEWAY_TOKEN", "")
+        self.gateway_token = configured_token.strip() or None
         super().__init__(address, OrbRequestHandler)
 
 
@@ -50,6 +55,9 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/v1/health":
             self._json(HTTPStatus.OK, {"ok": True, "service": "agent-orb", "version": "0.2.0"})
+            return
+        if parsed.path.startswith("/api/v1/") and not self._authorized():
+            self._unauthorized()
             return
         if parsed.path == "/api/v1/tools":
             self._json(HTTPStatus.OK, {"tools": self.server.assistant.list_tools()})
@@ -78,6 +86,9 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/v1/") and not self._authorized():
+            self._unauthorized()
+            return
         match = DEVICE_ROUTE.match(parsed.path)
         if not match or match.group(2) not in {"actions", "query", "audio"}:
             self._error(HTTPStatus.NOT_FOUND, "endpoint not found")
@@ -204,6 +215,27 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
 
     def _error(self, status: HTTPStatus, message: str) -> None:
         self._json(status, {"error": status.phrase, "message": message})
+
+    def _authorized(self) -> bool:
+        expected = self.server.gateway_token
+        if expected is None:
+            return True
+        supplied = self.headers.get("Authorization", "")
+        prefix = "Bearer "
+        return supplied.startswith(prefix) and secrets.compare_digest(
+            supplied[len(prefix):], expected
+        )
+
+    def _unauthorized(self) -> None:
+        data = b'{"error":"Unauthorized","message":"valid Bearer token required"}'
+        self.send_response(HTTPStatus.UNAUTHORIZED)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("WWW-Authenticate", "Bearer")
+        self._cors_headers()
+        self.end_headers()
+        self.wfile.write(data)
 
     def _cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")

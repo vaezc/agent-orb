@@ -4,6 +4,12 @@ String GatewayClient::Endpoint(const char* resource) const {
   return base_url_ + "/api/v1/devices/" + device_id_ + "/" + resource;
 }
 
+void GatewayClient::AddAuthorization(HTTPClient& http) const {
+  if (!gateway_token_.isEmpty()) {
+    http.addHeader("Authorization", "Bearer " + gateway_token_);
+  }
+}
+
 bool GatewayClient::FetchState(OrbSnapshot* snapshot, String* error) {
   HTTPClient http;
   http.setConnectTimeout(1500);
@@ -12,6 +18,7 @@ bool GatewayClient::FetchState(OrbSnapshot* snapshot, String* error) {
     *error = "could not create HTTP request";
     return false;
   }
+  AddAuthorization(http);
   const int status = http.GET();
   const bool ok = ParseResponse(http, status, snapshot, error);
   http.end();
@@ -37,6 +44,7 @@ bool GatewayClient::SendAction(const String& action,
     *error = "could not create HTTP request";
     return false;
   }
+  AddAuthorization(http);
   http.addHeader("Content-Type", "application/json");
   const int status = http.POST(json);
   const bool ok = ParseResponse(http, status, next, error);
@@ -53,6 +61,7 @@ bool GatewayClient::SendAudio(uint8_t* wav_data, size_t wav_size,
     *error = "could not create audio request";
     return false;
   }
+  AddAuthorization(http);
   http.addHeader("Content-Type", "audio/wav");
   const int status = http.POST(wav_data, wav_size);
   const bool ok = ParseResponse(http, status, next, error);
