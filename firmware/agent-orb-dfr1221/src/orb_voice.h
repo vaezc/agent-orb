@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include <driver/i2s.h>
+#include <ESP_I2S.h>
 
 // DFR1221 板载 PDM 麦克风（DFRobot 官方示例引脚）。
 constexpr gpio_num_t kMicClockPin = GPIO_NUM_45;
@@ -42,13 +42,9 @@ class OrbVoice {
   uint32_t recording_started_at_ = 0;
   uint32_t last_speech_at_ = 0;
   float noise_floor_ = 200.0f;
+  float peak_mean_amplitude_ = 0.0f;
 
-  void* sr_models_ = nullptr;
-  const void* wake_iface_ = nullptr;
-  void* wake_model_ = nullptr;
-  int16_t* wake_buffer_ = nullptr;
-  size_t wake_chunk_samples_ = 0;
-  size_t wake_samples_filled_ = 0;
+  I2SClass i2s_;
 
   void UpdateVoiceActivity(const int16_t* samples, size_t count);
   float MeanAbsoluteAmplitude(const int16_t* samples, size_t count) const;

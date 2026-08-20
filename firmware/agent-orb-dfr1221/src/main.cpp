@@ -140,6 +140,12 @@ void HandleVoiceButton() {
 void HandleSerialControl() {
   if (!Serial.available()) return;
   switch (Serial.read()) {
+    case 'p':
+      if (SendAction("wake")) {
+        auto_stop_recording = true;
+        voice.StartRecording();
+      }
+      break;
     case 'w': SendAction("wake"); break;
     case 'e': SendAction("speech_end"); break;
     case 'a': SendAction("approve"); break;
@@ -175,7 +181,7 @@ void setup() {
   delay(500);
   Serial.println("\nAgent Orb DFR1221 v0.1");
   Serial.println("wake word: Hi ESP; hold BOOT for push-to-talk fallback");
-  Serial.println("serial controls: w=wake e=speech_end a=approve r=reject d=dismiss x=reset");
+  Serial.println("serial controls: p=record w=wake e=speech_end a=approve r=reject d=dismiss x=reset");
   Serial.printf("[memory] PSRAM %s, %u bytes\n",
                 psramFound() ? "ready" : "unavailable",
                 static_cast<unsigned>(ESP.getPsramSize()));

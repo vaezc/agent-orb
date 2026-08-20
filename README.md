@@ -176,12 +176,14 @@ export ORB_WHISPER_LANGUAGE="zh"
 - 经 `code_cost` 真机验证的 ST77916 QSPI 圆屏驱动和 LVGL 8.3.11 UI
 - 英文状态文字与状态颜色反馈（动态中文字库待补）
 - GPIO45/46 PDM 麦克风采集与 PSRAM WAV 录音缓冲
-- ESP-SR WakeNet9 离线 `Hi ESP` 唤醒、轻量 VAD 和 BOOT 按键备用
+- 官方 ESP-SR AFE + WakeNet9 离线 `Hi ESP` 唤醒、轻量 VAD 和 BOOT 按键备用
 - 自动将 ESP-SR 模型分区与固件一起烧录
 
 屏幕、PSRAM、PDM 麦克风、Wi-Fi、WakeNet 模型加载和 Gateway 状态拉取
-已在实际 DFR1221 上通过。设备远程自检状态为 `Say Hi ESP`。唤醒词的
-声学效果、真实录音转写和屏幕在这一版固件下的最终外观仍需人在设备旁确认。
+已在实际 DFR1221 上通过。远程串口触发录音后，真机已完成 8 秒 WAV 上传、
+whisper.cpp 转写、Snoopy Agent 查询和屏幕答案回显；实测录音峰值均幅为 1407。
+设备自检状态为 `Say Hi ESP`。真人近距离说 `Hi ESP` 的声学灵敏度仍需人在
+设备旁最终确认；电脑扬声器离设备的位置未知，不能作为唤醒验收依据。
 
 ## 测试
 

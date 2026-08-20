@@ -35,6 +35,7 @@ pio device monitor
 
 | 字符 | 动作 |
 |---|---|
+| `p` | 开始一轮带自动结束的录音（远程诊断用） |
 | `w` | 模拟 WakeNet 唤醒 |
 | `e` | 模拟 VAD 判断说完 |
 | `a` | 确认授权 |
@@ -65,10 +66,12 @@ export ORB_WHISPER_LANGUAGE="zh"
 
 ## WakeNet 接入点
 
-板载麦克风已经在 `OrbVoice` 中采集 PCM，WakeNet9 已负责 `Hi ESP`
-离线唤醒，BOOT 键作为备用。当前说完检测是基于环境噪声基线的轻量 VAD；
-后续可接 ESP-SR AFE VAD：
+板载麦克风使用 Arduino `ESP_I2S` 采集 PCM，官方 `ESP_SR` AFE + WakeNet9
+负责 `Hi ESP` 离线唤醒，BOOT 键作为备用。开始录音时暂停 AFE，直接采集
+16kHz/16-bit/mono PCM，结束后恢复 AFE。一次 1024 字节采集约需 32ms，
+I2S 读取超时必须保留足够余量；当前为 100ms，不能退回曾导致 0 字节录音的
+2ms。当前说完检测仍是轻量能量 VAD，嘈杂环境可能录满 8 秒后再上传：
 
 1. WakeNet 检测成功，发送 `wake`。
-2. AFE/VAD 检测到语音结束，上传录音并发送 `speech_end`。
+2. 轻量 VAD 检测到语音结束，或达到 8 秒上限，上传录音并发送 `speech_end`。
 3. STT、LLM、Agent 工具调用留在电脑端。
