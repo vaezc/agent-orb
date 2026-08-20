@@ -56,11 +56,12 @@ void ConnectWifi() {
   }
 }
 
-bool SendAction(const char* action) {
+bool SendAction(const char* action, const char* title = nullptr,
+                const char* message = nullptr) {
   if (WiFi.status() != WL_CONNECTED) return false;
   OrbSnapshot next;
   String error;
-  if (gateway.SendAction(action, snapshot, &next, &error)) {
+  if (gateway.SendAction(action, snapshot, &next, &error, title, message)) {
     snapshot = next;
     display.Show(snapshot);
     return true;
@@ -91,7 +92,7 @@ void UploadRecording() {
 void CancelRecording() {
   voice.StopRecording();
   auto_stop_recording = false;
-  SendAction("cancel");
+  SendAction("cancel", "No speech", "Say Hi ESP again");
   Serial.println("[voice] no speech detected after wake word");
 }
 

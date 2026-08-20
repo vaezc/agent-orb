@@ -67,6 +67,7 @@ Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验�
 - 官方 `esp_sr_16.csv` 分区表包含 `model` 分区，构建脚本会将框架内的 `srmodels.bin` 加入构建和烧录。
 - WakeNet 唤醒后采集 16kHz/16-bit/mono PCM；约 900ms 静音后自动结束，3.5 秒未说话则取消。
 - 录音时暂停 AFE、结束后恢复。I2S 每次读取 1024 字节约需 32ms，当前超时为 100ms；2ms 会稳定产生 `ESP_ERR_TIMEOUT` 和 0 字节录音，不得回退。
+- VAD 音量必须先减去每个采样块的直流偏置；DFR1221 PDM 麦克风在安静环境下的原始零点偏移曾产生约 1385 的假音量，导致静音被当成持续说话。修复后同一环境峰值约 26，唤醒后 3.5 秒无语音会取消并显示 `No speech / Say Hi ESP again`。
 - 串口 `p` 可远程触发与唤醒后相同的自动录音流程，供无人守在设备旁时诊断。
 - Gateway 新增 `/audio`，校验 WAV 后调用 whisper.cpp，将转写文字复用现有 Snoopy/query 链路。
 - Gateway 的 ESP32 POST 请求使用 HTTP/1.0 短连接，避免服务端 HTTP/1.0 响应在 ESP32 默认 HTTP/1.1 keep-alive 路径中延迟约 22 秒；状态轮询仍保留默认行为。

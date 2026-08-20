@@ -163,11 +163,22 @@ void OrbVoice::UpdateVoiceActivity(const int16_t* samples, size_t count) {
 
 float OrbVoice::MeanAbsoluteAmplitude(const int16_t* samples,
                                       size_t count) const {
-  uint64_t total = 0;
+  if (count == 0) return 0.0f;
+
+  // The DFR1221 PDM microphone has a noticeable DC offset. Measuring samples
+  // against zero makes a quiet room look like continuous speech, so remove the
+  // mean of each block before calculating its actual acoustic amplitude.
+  int64_t signed_total = 0;
   for (size_t index = 0; index < count; ++index) {
-    const int32_t sample = samples[index];
-    total += sample < 0 ? static_cast<uint32_t>(-sample)
-                        : static_cast<uint32_t>(sample);
+    signed_total += samples[index];
   }
-  return count == 0 ? 0.0f : static_cast<float>(total) / count;
+  const int32_t dc_offset = static_cast<int32_t>(signed_total / count);
+
+  uint64_t deviation_total = 0;
+  for (size_t index = 0; index < count; ++index) {
+    const int32_t deviation = static_cast<int32_t>(samples[index]) - dc_offset;
+    deviation_total += deviation < 0 ? static_cast<uint32_t>(-deviation)
+                                     : static_cast<uint32_t>(deviation);
+  }
+  return static_cast<float>(deviation_total) / count;
 }
