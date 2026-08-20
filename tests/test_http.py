@@ -1,6 +1,8 @@
 import json
+import io
 import threading
 import unittest
+import wave
 from unittest.mock import Mock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -32,6 +34,16 @@ class GatewayHttpTests(unittest.TestCase):
             self.base + path,
             data=json.dumps(payload).encode(),
             headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(request, timeout=2) as response:
+            return response.status, json.load(response)
+
+    def post_audio(self, path, payload):
+        request = Request(
+            self.base + path,
+            data=payload,
+            headers={"Content-Type": "audio/wav"},
             method="POST",
         )
         with urlopen(request, timeout=2) as response:
@@ -99,6 +111,35 @@ class GatewayHttpTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, 502)
             raised.exception.close()
             self.assertEqual(server.registry.get("failure").snapshot().state.value, "error")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_audio_is_transcribed_and_sent_to_assistant(self):
+        transcriber = Mock()
+        transcriber.transcribe.return_value = "系统状态"
+        server = OrbGatewayServer(("127.0.0.1", 0), transcriber=transcriber)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            audio = io.BytesIO()
+            with wave.open(audio, "wb") as destination:
+                destination.setnchannels(1)
+                destination.setsampwidth(2)
+                destination.setframerate(16_000)
+                destination.writeframes(b"\0\0" * 1_600)
+            request = Request(
+                f"http://127.0.0.1:{server.server_port}/api/v1/devices/voice/audio",
+                data=audio.getvalue(),
+                headers={"Content-Type": "audio/wav"},
+                method="POST",
+            )
+            with urlopen(request, timeout=2) as response:
+                body = json.load(response)
+            self.assertEqual(body["state"], "answer")
+            self.assertEqual(body["input"], "系统状态")
+            transcriber.transcribe.assert_called_once()
         finally:
             server.shutdown()
             server.server_close()

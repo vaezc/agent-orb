@@ -13,7 +13,10 @@ class GatewayClient {
 
   bool FetchState(OrbSnapshot* snapshot, String* error);
   bool SendAction(const String& action, const OrbSnapshot& current,
-                  OrbSnapshot* next, String* error);
+                  OrbSnapshot* next, String* error,
+                  const String& title = "", const String& message = "");
+  bool SendAudio(uint8_t* wav_data, size_t wav_size, OrbSnapshot* next,
+                 String* error);
 
  private:
   bool ParseResponse(HTTPClient& http, int status, OrbSnapshot* snapshot,

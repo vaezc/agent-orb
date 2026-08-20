@@ -13,10 +13,18 @@ from urllib.parse import parse_qs, urlparse
 
 from .assistant import AssistantBackend, AssistantUnavailable, assistant_from_environment
 from .model import InvalidTransition, OrbRegistry, OrbState
+from .speech import (
+    SpeechTranscriber,
+    SpeechUnavailable,
+    speech_from_environment,
+)
 
 
 LOGGER = logging.getLogger("agent-orb")
-DEVICE_ROUTE = re.compile(r"^/api/v1/devices/([A-Za-z0-9_-]{1,64})/(state|events|actions|query)$")
+DEVICE_ROUTE = re.compile(
+    r"^/api/v1/devices/([A-Za-z0-9_-]{1,64})/"
+    r"(state|events|actions|query|audio)$"
+)
 
 
 class OrbGatewayServer(ThreadingHTTPServer):
@@ -27,9 +35,11 @@ class OrbGatewayServer(ThreadingHTTPServer):
         address: tuple[str, int],
         registry: OrbRegistry | None = None,
         assistant: AssistantBackend | None = None,
+        transcriber: SpeechTranscriber | None = None,
     ):
         self.registry = registry or OrbRegistry()
         self.assistant = assistant or assistant_from_environment(self.registry.count)
+        self.transcriber = transcriber or speech_from_environment()
         super().__init__(address, OrbRequestHandler)
 
 
@@ -69,11 +79,14 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         match = DEVICE_ROUTE.match(parsed.path)
-        if not match or match.group(2) not in {"actions", "query"}:
+        if not match or match.group(2) not in {"actions", "query", "audio"}:
             self._error(HTTPStatus.NOT_FOUND, "endpoint not found")
             return
 
         try:
+            if match.group(2) == "audio":
+                self._handle_audio(match.group(1))
+                return
             payload = self._read_json()
             if match.group(2) == "query":
                 self._handle_query(match.group(1), payload)
@@ -87,6 +100,9 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
             return
         except AssistantUnavailable as exc:
             self._error(HTTPStatus.BAD_GATEWAY, str(exc))
+            return
+        except SpeechUnavailable as exc:
+            self._error(HTTPStatus.SERVICE_UNAVAILABLE, str(exc))
             return
         except (ValueError, json.JSONDecodeError) as exc:
             self._error(HTTPStatus.BAD_REQUEST, str(exc))
@@ -120,6 +136,16 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
         body["tool"] = response.tool
         self._json(HTTPStatus.OK, body)
 
+    def _handle_audio(self, device_id: str) -> None:
+        wav_data = self._read_body("audio/wav", 400_000)
+        device = self.server.registry.get(device_id)
+        try:
+            transcript = self.server.transcriber.transcribe(wav_data)
+        except (SpeechUnavailable, ValueError) as exc:
+            device.apply("fail", {"message": str(exc)})
+            raise
+        self._handle_query(device_id, {"text": transcript, "source": "device_audio"})
+
     def do_OPTIONS(self) -> None:  # noqa: N802
         self.send_response(HTTPStatus.NO_CONTENT)
         self._cors_headers()
@@ -129,19 +155,23 @@ class OrbRequestHandler(BaseHTTPRequestHandler):
         LOGGER.info("%s - %s", self.address_string(), format % args)
 
     def _read_json(self) -> dict:
+        raw = self._read_body("application/json", 16_384)
+        payload = json.loads(raw.decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("request body must be a JSON object")
+        return payload
+
+    def _read_body(self, expected_type: str, maximum: int) -> bytes:
         content_type = self.headers.get("Content-Type", "").split(";", 1)[0]
-        if content_type != "application/json":
-            raise ValueError("Content-Type must be application/json")
+        if content_type != expected_type:
+            raise ValueError(f"Content-Type must be {expected_type}")
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError as exc:
             raise ValueError("invalid Content-Length") from exc
-        if length <= 0 or length > 16_384:
-            raise ValueError("request body must contain 1-16384 bytes")
-        payload = json.loads(self.rfile.read(length).decode("utf-8"))
-        if not isinstance(payload, dict):
-            raise ValueError("request body must be a JSON object")
-        return payload
+        if length <= 0 or length > maximum:
+            raise ValueError(f"request body must contain 1-{maximum} bytes")
+        return self.rfile.read(length)
 
     def _static(self, request_path: str) -> None:
         relative = "index.html" if request_path in {"", "/"} else request_path.lstrip("/")

@@ -20,9 +20,12 @@ bool GatewayClient::FetchState(OrbSnapshot* snapshot, String* error) {
 
 bool GatewayClient::SendAction(const String& action,
                                const OrbSnapshot& current,
-                               OrbSnapshot* next, String* error) {
+                               OrbSnapshot* next, String* error,
+                               const String& title, const String& message) {
   JsonDocument body;
   body["action"] = action;
+  if (!title.isEmpty()) body["title"] = title;
+  if (!message.isEmpty()) body["message"] = message;
   if (!current.request_id.isEmpty()) body["request_id"] = current.request_id;
   String json;
   serializeJson(body, json);
@@ -36,6 +39,22 @@ bool GatewayClient::SendAction(const String& action,
   }
   http.addHeader("Content-Type", "application/json");
   const int status = http.POST(json);
+  const bool ok = ParseResponse(http, status, next, error);
+  http.end();
+  return ok;
+}
+
+bool GatewayClient::SendAudio(uint8_t* wav_data, size_t wav_size,
+                              OrbSnapshot* next, String* error) {
+  HTTPClient http;
+  http.setConnectTimeout(2500);
+  http.setTimeout(60000);
+  if (!http.begin(Endpoint("audio"))) {
+    *error = "could not create audio request";
+    return false;
+  }
+  http.addHeader("Content-Type", "audio/wav");
+  const int status = http.POST(wav_data, wav_size);
   const bool ok = ParseResponse(http, status, next, error);
   http.end();
   return ok;

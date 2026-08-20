@@ -25,6 +25,8 @@ DFR1221 / 浏览器模拟器
 - Web 文字输入与浏览器原生中文语音识别
 - 可替换的本地助手引擎和 4 个演示工具
 - DFR1221 真机固件、ST77916 圆屏 UI 与设备协议客户端
+- ESP-SR WakeNet9 离线 `Hi ESP` 唤醒、轻量 VAD 与 BOOT 按键录音备用
+- 设备 WAV 上传、电脑端 whisper.cpp 转写和 Snoopy 查询链路
 - 自动测试
 
 ## 立即运行
@@ -127,6 +129,17 @@ curl http://localhost:8787/api/v1/devices/demo/state
 
 Gateway 自动完成状态流转，并返回最终快照以及实际调用的本地工具名。
 
+### `POST /api/v1/devices/{device_id}/audio`
+
+接收设备上传的 `audio/wav`（16kHz、16-bit、单声道，最长 10 秒）。
+配置 `ORB_WHISPER_MODEL` 后，Gateway 使用本地 whisper.cpp 转写，再将文字
+交给当前 Assistant：
+
+```bash
+export ORB_WHISPER_MODEL="/path/to/ggml-base.bin"
+export ORB_WHISPER_LANGUAGE="zh"
+```
+
 ### `GET /api/v1/tools`
 
 列出当前助手引擎真正实现的工具。现阶段包括时间日期、Gateway 状态、能力说明和安全回显。
@@ -144,10 +157,13 @@ Gateway 自动完成状态流转，并返回最终快照以及实际调用的本
 - 与电脑端一致的状态模型
 - 经 `code_cost` 真机验证的 ST77916 QSPI 圆屏驱动和 LVGL 8.3.11 UI
 - 英文状态文字与状态颜色反馈（动态中文字库待补）
-- GPIO45/46 PDM 麦克风引脚定义
-- WakeNet/音频采集的独立适配边界
+- GPIO45/46 PDM 麦克风采集与 PSRAM WAV 录音缓冲
+- ESP-SR WakeNet9 离线 `Hi ESP` 唤醒、轻量 VAD 和 BOOT 按键备用
+- 自动将 ESP-SR 模型分区与固件一起烧录
 
-屏幕、PSRAM、PDM 麦克风初始化、Wi-Fi 和 Snoopy Gateway 状态拉取已在实际 DFR1221 上联调通过。触摸、WakeNet、VAD、录音上传与 STT 仍是后续工作。
+屏幕、PSRAM、PDM 麦克风、Wi-Fi、WakeNet 模型加载和 Gateway 状态拉取
+已在实际 DFR1221 上通过。设备远程自检状态为 `Say Hi ESP`。唤醒词的
+声学效果、真实录音转写和屏幕在这一版固件下的最终外观仍需人在设备旁确认。
 
 ## 测试
 

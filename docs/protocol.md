@@ -58,3 +58,15 @@ Content-Type: application/json
 ```
 
 `tool` 是实际执行的本地工具名。真实 LLM/STT 尚未接入时，协议不会把回显结果伪装成模型回答。
+
+## 设备音频
+
+```http
+POST /api/v1/devices/{device_id}/audio
+Content-Type: audio/wav
+```
+
+音频必须是 16kHz、16-bit、单声道 PCM WAV，有效时长 100ms–10s，
+请求体不超过 400KB。Gateway 先用配置的 STT 转写，再复用上述
+`query` 流程。STT 未配置或转写失败时返回错误，并将设备转入
+`error`，不会把空转写交给 Agent。
