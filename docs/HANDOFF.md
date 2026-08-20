@@ -20,9 +20,9 @@ DFRobot DFR1221（ESP32-S3）
 
 同时验证了反向授权动作：Gateway 发出带 `request_id` 的授权请求，设备收到 `APPROVAL`，设备通过串口发送 `approve` 后，Gateway 进入 `ANSWER` 并保留关联 ID。
 
-必须准确理解当前完成度：DFR1221 的 ST77916 实体圆屏、网络、状态协议、PSRAM、PDM 麦克风和官方 ESP-SR AFE + WakeNet9 已在真机验证。最新固件启动后主动上报 `idle / Agent Orb / Say Hi ESP`；设备同时持续拉取 Gateway 状态。串口 `p` 远程触发实测完成 8 秒 / 256044 字节 WAV 上传、whisper.cpp 转写、Snoopy Agent 查询和屏幕答案回显，录音峰值均幅为 1407。随后用户真人说 `Hi ESP`，Gateway 在 2026-08-20 19:18:18 收到 wake，19:18:54 收到 speech_end，19:19:22 完成 audio 并进入 answer，证明真人唤醒到 Agent 的链路已经跑通。用户当时没有感知到明显的屏幕变化，因此下一步是加强 `LISTENING` 视觉反馈并改善现场 VAD/转写准确度，不要再把问题误判成 WakeNet 没触发。屏幕已由用户确认蓝底文字稳定且彩条消失。当前固件没有覆盖任意中文的字库，中文消息可能缺字；CST816S 已初始化，但尚未接入 Orb 确认/拒绝业务交互。
+必须准确理解当前完成度：DFR1221 的 ST77916 实体圆屏、网络、状态协议、PSRAM、PDM 麦克风和官方 ESP-SR AFE + WakeNet9 已在真机验证。最新固件启动后主动上报 `idle / Agent Orb / Say Hi ESP`；设备同时持续拉取 Gateway 状态。串口 `p` 远程触发实测完成 8 秒 / 256044 字节 WAV 上传、whisper.cpp 转写、Snoopy Agent 查询和屏幕答案回显。用户真人说 `Hi ESP` 时 Gateway 也收到了 wake，证明不是 WakeNet 未触发。此前 ESP32 的 HTTP/1.1 POST 响应结束曾延迟约 22 秒，导致用户看不到及时反馈；POST 改用短连接 HTTP/1.0 后，最新实测 `wake → LISTENING` 为 72ms、`speech_end → THINKING` 为 51ms、reset 为 46ms，完整音频处理为 7275ms。屏幕已由用户确认蓝底文字稳定且彩条消失。当前固件没有覆盖任意中文的字库，中文消息可能缺字；CST816S 已初始化，但尚未接入 Orb 确认/拒绝业务交互。
 
-Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验证：公开健康接口返回 200，未带 Token 的设备 API 返回 401，实体设备 `192.168.1.18` 带 Token 持续获得 200。通过常驻 Gateway 提交“系统状态”实测返回 `tool=snoopy_chat`，证明 `Gateway → Snoopy Agent` 生产链路可用；最新固件烧录后设备已恢复 `idle / Say Hi ESP / revision 33`。
+Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验证：公开健康接口返回 200，未带 Token 的设备 API 返回 401，实体设备 `192.168.1.18` 带 Token 持续获得 200。通过常驻 Gateway 提交“系统状态”实测返回 `tool=snoopy_chat`，证明 `Gateway → Snoopy Agent` 生产链路可用；2026-08-20 最终轮换设备 Token、重启 Gateway 并重烧固件后，设备完成整链路测试并恢复 `idle / revision 5`。
 
 ## 相关项目
 
@@ -69,6 +69,7 @@ Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验�
 - 录音时暂停 AFE、结束后恢复。I2S 每次读取 1024 字节约需 32ms，当前超时为 100ms；2ms 会稳定产生 `ESP_ERR_TIMEOUT` 和 0 字节录音，不得回退。
 - 串口 `p` 可远程触发与唤醒后相同的自动录音流程，供无人守在设备旁时诊断。
 - Gateway 新增 `/audio`，校验 WAV 后调用 whisper.cpp，将转写文字复用现有 Snoopy/query 链路。
+- Gateway 的 ESP32 POST 请求使用 HTTP/1.0 短连接，避免服务端 HTTP/1.0 响应在 ESP32 默认 HTTP/1.1 keep-alive 路径中延迟约 22 秒；状态轮询仍保留默认行为。
 
 ## 真机实测事实
 
@@ -84,8 +85,8 @@ Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验�
 - Wi-Fi：同名双频网络可用，ESP32-S3 会连接 2.4GHz。
 - 离线唤醒：WakeNet9 内置 `Hi ESP` 模型已写入 `0xC10000`，烧录校验通过。
 - 启动日志实测加载 `wn9_hiesp`，并打印 `ESP-SR AFE + WakeNet ready`。
-- 远程串口 `p` 实测录制 8000ms、256044 字节 WAV，峰值均幅 1407；Gateway 完成 STT、Snoopy 查询并返回答案。当前环境的轻量 VAD 未在 900ms 静音处提前结束，而是安全录满 8 秒。
-- 最新固件启动后设备主动上报 `Say Hi ESP`，最终烧录后 Gateway 实测收到 revision 2（2026-08-20 11:06:38 +08:00）。
+- 远程串口 `p` 最新实测录制 7999ms、256044 字节 WAV，峰值均幅 1385；Gateway 完成 STT、Snoopy 查询并返回答案。当前环境的轻量 VAD 未在 900ms 静音处提前结束，而是安全录满 8 秒。
+- 最新固件启动后设备主动上报 `Say Hi ESP`；轮换设备 Token 并重烧后的自动整链路测试依次到达 revision 1–5，最终恢复 idle。
 - Gateway 地址保存在本机 `include/secrets.h`；该文件被 Git 忽略。
 - USB 串口编号会在重新插拔后变化，例如 `usbmodem21101`、`usbmodem21201`，烧录前必须重新发现，不能硬编码旧端口。
 
@@ -142,7 +143,7 @@ PYTHONPATH=src python3 -m orb_gateway --host <本机 Wi-Fi IP> --port 8787 --ver
 
 - `firmware/agent-orb-dfr1221/include/secrets.h` 包含 Wi-Fi 凭据，只能留在本机；`.gitignore` 已覆盖它。
 - Snoopy Token 保存在 macOS Keychain，不得写进代码、文档、日志或 Git。
-- Gateway 设备 Token 保存在 Keychain 的 `agent-orb-gateway-token`，并由配置脚本同步到已忽略的 `gateway_token.h`。生产 API 要求 Bearer Token，plist 中没有密钥。
+- Gateway 设备 Token 保存在 Keychain 的 `agent-orb-gateway-token`，并由配置脚本同步到已忽略的 `gateway_token.h`。生产 API 要求 Bearer Token，plist 中没有密钥。需要轮换时运行 `python3 scripts/provision_gateway_token.py --rotate`，随后重启 Gateway 并重新烧录固件。
 - Gateway 的设备 API 已要求独立 Bearer Token，公开健康接口除外；CORS 仍为 `*`。只监听需要的本机 Wi-Fi IP，不要监听 `0.0.0.0` 或暴露到公网。
 - whisper.cpp 模型不提交 Git。本机已安装 `/opt/homebrew/bin/whisper-cli`，模型在 `/Users/vae/Library/Caches/agent-orb/ggml-base.bin`。
 - 本地 `.venv/`、PlatformIO `.pio/` 和固件 secrets 都不能提交。
@@ -150,7 +151,7 @@ PYTHONPATH=src python3 -m orb_gateway --host <本机 Wi-Fi IP> --port 8787 --ver
 
 ## 已知缺口与建议顺序
 
-1. **增强唤醒反馈与现场语音质量**：真人 `Hi ESP` 已触发完整链路，但用户没有感知到明显的 `LISTENING` 变化。优先让背景/大字产生显著变化，再校准轻量 VAD 或接入 AFE VAD，并检查 whisper.cpp 中文转写准确度。
+1. **改善现场语音质量**：真人 `Hi ESP` 已触发完整链路，POST 延迟修复后 `LISTENING` 可在约 72ms 内出现。下一步校准轻量 VAD 或接入 AFE VAD，并检查 whisper.cpp 中文转写准确度；如现场仍看不清状态，再加强背景或大字变化。
 2. **评估自定义唤醒词**：当前是官方内置 `Hi ESP`。`Agent Orb` 或 `Snoopy` 需要训练与替换模型，不是改一个字符串。
 3. **接入触摸交互**：CST816S 已按 SCL=8、SDA=7、INT=41、RST=40 初始化，把触摸事件映射成屏幕确认/拒绝动作并接到 `GatewayClient`。
 4. **补齐中文字库**：根据实际 UI 文案生成 LVGL 字体子集，或引入可覆盖动态回答的中文字库；注意内部 RAM 和 Flash 占用。当前不要宣称任意中文已可显示。

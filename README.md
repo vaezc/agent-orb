@@ -64,6 +64,8 @@ DHCP 导致本机 Wi-Fi IP 改变时，需同步更新 plist 的 `ORB_GATEWAY_HO
 和固件 `ORB_GATEWAY_URL`。
 首次安装前运行 `python3 scripts/provision_gateway_token.py`，它会将同一个
 随机 Token 安全写入 Keychain 和被 Git 忽略的固件头文件。
+如需轮换已配置的 Token，运行
+`python3 scripts/provision_gateway_token.py --rotate`，然后重启 Gateway 并重新烧录固件。
 
 ### 接入 Snoopy Agent
 

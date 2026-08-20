@@ -38,6 +38,11 @@ bool GatewayClient::SendAction(const String& action,
   serializeJson(body, json);
 
   HTTPClient http;
+  // BaseHTTPRequestHandler responds to POST using HTTP/1.0.  ESP32's default
+  // HTTP/1.1 keep-alive path can take about 22 seconds to finish the response,
+  // delaying the listening UI and recording.  A short-lived HTTP/1.0 request
+  // completes immediately while state polling can keep its default behavior.
+  http.useHTTP10(true);
   http.setConnectTimeout(1500);
   http.setTimeout(2500);
   if (!http.begin(Endpoint("actions"))) {
@@ -46,15 +51,19 @@ bool GatewayClient::SendAction(const String& action,
   }
   AddAuthorization(http);
   http.addHeader("Content-Type", "application/json");
+  const uint32_t started_at = millis();
   const int status = http.POST(json);
   const bool ok = ParseResponse(http, status, next, error);
   http.end();
+  Serial.printf("[gateway] action %s completed in %u ms\n", action.c_str(),
+                static_cast<unsigned>(millis() - started_at));
   return ok;
 }
 
 bool GatewayClient::SendAudio(uint8_t* wav_data, size_t wav_size,
                               OrbSnapshot* next, String* error) {
   HTTPClient http;
+  http.useHTTP10(true);
   http.setConnectTimeout(2500);
   http.setTimeout(60000);
   if (!http.begin(Endpoint("audio"))) {
@@ -63,9 +72,12 @@ bool GatewayClient::SendAudio(uint8_t* wav_data, size_t wav_size,
   }
   AddAuthorization(http);
   http.addHeader("Content-Type", "audio/wav");
+  const uint32_t started_at = millis();
   const int status = http.POST(wav_data, wav_size);
   const bool ok = ParseResponse(http, status, next, error);
   http.end();
+  Serial.printf("[gateway] audio completed in %u ms\n",
+                static_cast<unsigned>(millis() - started_at));
   return ok;
 }
 

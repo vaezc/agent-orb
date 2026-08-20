@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import getpass
 import os
 import secrets
@@ -39,8 +40,25 @@ def keychain_token() -> str | None:
     return token if len(token) == 64 and all(char in "0123456789abcdef" for char in token) else None
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Provision the Agent Orb device token without printing it."
+    )
+    parser.add_argument(
+        "--rotate",
+        action="store_true",
+        help="replace an existing token instead of reusing it",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    token = keychain_token() or secrets.token_hex(32)
+    args = parse_args()
+    token = (
+        secrets.token_hex(32)
+        if args.rotate
+        else keychain_token() or secrets.token_hex(32)
+    )
     subprocess.run(
         [
             "/usr/bin/security",
