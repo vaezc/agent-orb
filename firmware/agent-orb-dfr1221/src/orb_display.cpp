@@ -137,6 +137,9 @@ void OrbDisplay::Show(const OrbSnapshot& snapshot) {
 }
 
 void OrbDisplay::ShowNetworkError(const String& detail) {
+  // The Gateway may recover without changing the device-state revision.
+  // Force the next successful snapshot to repaint instead of being skipped.
+  last_revision_ = UINT32_MAX;
   if (display_ready) {
     lv_obj_set_style_border_color(ring, StateColor(OrbState::kError), 0);
     lv_obj_set_style_text_color(state_label, StateColor(OrbState::kError), 0);

@@ -20,9 +20,9 @@ DFRobot DFR1221（ESP32-S3）
 
 同时验证了反向授权动作：Gateway 发出带 `request_id` 的授权请求，设备收到 `APPROVAL`，设备通过串口发送 `approve` 后，Gateway 进入 `ANSWER` 并保留关联 ID。
 
-必须准确理解当前完成度：DFR1221 的 ST77916 实体圆屏、网络、状态协议、PSRAM、PDM 麦克风和官方 ESP-SR AFE + WakeNet9 模型加载已在真机验证。最新固件启动后主动上报 `idle / Agent Orb / Say Hi ESP`；设备同时持续拉取 Gateway 状态。通过串口 `p` 触发真机录音后，已真实完成 8 秒 / 256044 字节 WAV 上传、whisper.cpp 转写、Snoopy Agent 查询和屏幕答案回显，录音峰值均幅实测为 1407。因操作者不在设备旁，这一版仍没有完成真人近距离说 `Hi ESP` 的声学灵敏度验收；电脑扬声器测试未触发，但设备与电脑的实际距离未知，不得据此宣称唤醒失败或成功。屏幕已由用户确认蓝底文字稳定且彩条消失。当前固件没有覆盖任意中文的字库，中文消息可能缺字；CST816S 已初始化，但尚未接入 Orb 确认/拒绝业务交互。
+必须准确理解当前完成度：DFR1221 的 ST77916 实体圆屏、网络、状态协议、PSRAM、PDM 麦克风和官方 ESP-SR AFE + WakeNet9 已在真机验证。最新固件启动后主动上报 `idle / Agent Orb / Say Hi ESP`；设备同时持续拉取 Gateway 状态。串口 `p` 远程触发实测完成 8 秒 / 256044 字节 WAV 上传、whisper.cpp 转写、Snoopy Agent 查询和屏幕答案回显，录音峰值均幅为 1407。随后用户真人说 `Hi ESP`，Gateway 在 2026-08-20 19:18:18 收到 wake，19:18:54 收到 speech_end，19:19:22 完成 audio 并进入 answer，证明真人唤醒到 Agent 的链路已经跑通。用户当时没有感知到明显的屏幕变化，因此下一步是加强 `LISTENING` 视觉反馈并改善现场 VAD/转写准确度，不要再把问题误判成 WakeNet 没触发。屏幕已由用户确认蓝底文字稳定且彩条消失。当前固件没有覆盖任意中文的字库，中文消息可能缺字；CST816S 已初始化，但尚未接入 Orb 确认/拒绝业务交互。
 
-Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验证：公开健康接口返回 200，未带 Token 的设备 API 返回 401，实体设备 `192.168.1.18` 带 Token 持续获得 200。通过常驻 Gateway 提交“系统状态”实测返回 `tool=snoopy_chat`，证明 `Gateway → Snoopy Agent` 生产链路可用；最终固件烧录后设备已恢复 `idle / Say Hi ESP / revision 24`。
+Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验证：公开健康接口返回 200，未带 Token 的设备 API 返回 401，实体设备 `192.168.1.18` 带 Token 持续获得 200。通过常驻 Gateway 提交“系统状态”实测返回 `tool=snoopy_chat`，证明 `Gateway → Snoopy Agent` 生产链路可用；最新固件烧录后设备已恢复 `idle / Say Hi ESP / revision 33`。
 
 ## 相关项目
 
@@ -58,6 +58,7 @@ Gateway 已作为 `com.agent-orb.gateway` LaunchAgent 常驻运行。最终验�
 - 屏幕底层移植自同级已验证项目 `../code_cost`：使用其 DFR1221 引脚、ST77916 厂商初始化指令、13-bit LEDC 背光、72 行内部 RAM 绘制缓冲和 CST816S 初始化。
 - 新增圆屏 Orb UI，状态使用独立颜色；当前使用 Montserrat 14/16 英文字体。
 - 显存刷新采用异步 QSPI 传输，并在 DMA 完成回调中通知 LVGL。
+- 网络错误会使下一次成功状态强制重绘；即使 Gateway 状态 revision 未变化，连接恢复后屏幕也不会继续停在 `NETWORK ERROR`。
 - 使用 Arduino `ESP_I2S` 官方 PDM RX 接口初始化 GPIO45/46 麦克风。
 - 修复 ArduinoJson 7 与 `StringSumHelper` 默认值表达式的编译错误。
 - 增加 `qio_opi` 内存模式，使板载 8MB OPI PSRAM 正确工作。
@@ -149,7 +150,7 @@ PYTHONPATH=src python3 -m orb_gateway --host <本机 Wi-Fi IP> --port 8787 --ver
 
 ## 已知缺口与建议顺序
 
-1. **完成真人唤醒验收**：人在设备旁先喊 `Hi ESP`，观察进入 Listening，再说一句中文。录音、上传、Whisper、Snoopy 和屏幕回显已通过串口远程触发验证；现在只需确认真人发音的 WakeNet 灵敏度。轻量 VAD 在远程扬声器测试中录满 8 秒，如现场噪声也无法提前结束，再接入 AFE VAD 或校准能量门限。
+1. **增强唤醒反馈与现场语音质量**：真人 `Hi ESP` 已触发完整链路，但用户没有感知到明显的 `LISTENING` 变化。优先让背景/大字产生显著变化，再校准轻量 VAD 或接入 AFE VAD，并检查 whisper.cpp 中文转写准确度。
 2. **评估自定义唤醒词**：当前是官方内置 `Hi ESP`。`Agent Orb` 或 `Snoopy` 需要训练与替换模型，不是改一个字符串。
 3. **接入触摸交互**：CST816S 已按 SCL=8、SDA=7、INT=41、RST=40 初始化，把触摸事件映射成屏幕确认/拒绝动作并接到 `GatewayClient`。
 4. **补齐中文字库**：根据实际 UI 文案生成 LVGL 字体子集，或引入可覆盖动态回答的中文字库；注意内部 RAM 和 Flash 占用。当前不要宣称任意中文已可显示。
@@ -165,4 +166,4 @@ PYTHONPATH=src python3 -m orb_gateway --host <本机 Wi-Fi IP> --port 8787 --ver
 3. 确认 `secrets.h` 存在但被 Git 忽略，不要读取或输出其值。
 4. 运行 Python 测试和固件构建。
 5. 屏幕已按 `../code_cost` 的已验证底层实现并烧录验证。保持 Arduino-ESP32 3.3.11、LVGL 8.3.11 和当前 ST77916 初始化/刷新实现；如要升级或改动，必须重新验证无黑屏、无彩条，并同时检查 PDM 麦克风和 Wi-Fi。
-6. 人回到设备旁后，先从 `Hi ESP` 实声唤醒测试开始；录音到 Agent 回显已远程走通，真人唤醒灵敏度是当前唯一未完成的关键声学验收。
+6. 真人 `Hi ESP` 已走通到 Agent；下一轮现场测试重点观察 `LISTENING` 是否足够明显、录音何时结束以及转写内容是否准确。
